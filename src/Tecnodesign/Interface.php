@@ -414,7 +414,6 @@ class Tecnodesign_Interface implements ArrayAccess
             //Tecnodesign_App::$assets[] = '!Z.Graph,Chart';
 
             //if($I && $I->auth) tdz::cacheControl('private, no-store, no-cache, must-revalidate',0);
-
             if(is_null(static::$format)) {
                 $f = static::$formats;
                 static::$format = array_shift($f);
@@ -566,7 +565,7 @@ class Tecnodesign_Interface implements ArrayAccess
                 if(!isset($a['action'])) continue;
 
                 if(!isset($a['position'])) $a['position'] = 0.000;
-                $p = $a['position'];
+                $p = (float) $a['position'];
                 while(isset($la[$p])) $p += 0.001;
                 $a['id'] = $an;
 
@@ -2003,11 +2002,11 @@ class Tecnodesign_Interface implements ArrayAccess
     public function renderSchema($o=null, $scope=null)
     {
         if(!$scope) {
-            if($o && isset($this->options['scope'][$o]) && substr($o, 0, 1)!='_') {
-                $scope = $this->scope($o);
-            } else if(($o=tdz::slug(Tecnodesign_App::request('get', static::REQ_SCOPE))) && isset($this->options['scope'][$o]) && !isset(static::$actionsAvailable[$o]) && substr($o, 0, 1)!='_') {
+            if(($o=tdz::slug(Tecnodesign_App::request('get', static::REQ_SCOPE))) && isset($this->options['scope'][$o]) && !isset(static::$actionsAvailable[$o]) && substr($o, 0, 1)!='_') {
                 $scope = $this->scope($o, false, false, true);
                 unset($rs);
+            } else if($o && isset($this->options['scope'][$o]) && substr($o, 0, 1)!='_') {
+                $scope = $this->scope($o);
             } else if(isset($this->options['scope'][$this->action])) {
                 $scope = $this->scope($this->action);
                 $o = $this->action;
@@ -2020,9 +2019,6 @@ class Tecnodesign_Interface implements ArrayAccess
             }
         }
 
-        $cn = $this->getModel();
-        $fo = $cn::formFields($scope);
-
         $a = (in_array($this->params, static::$actionAlias))?(array_search($this->params, static::$actionAlias)):($this->params);
         $identified = false;
         if(isset(static::$actionsAvailable[$a]['identified'])) {
@@ -2034,24 +2030,10 @@ class Tecnodesign_Interface implements ArrayAccess
             $qs = '?'.static::REQ_ENVELOPE.'='.var_export((bool)self::$envelope, true);
         }
 
-        $P=array();
-        $R=array();
-
-        $types = array('boolean'=>'boolean', 'bool'=>'boolean', 'array'=>'object', 'integer'=>'number', 'number'=>'number');
-
-        foreach($fo as $fn=>$fd) {
-            $bind = (isset($fd['bind']))?($fd['bind']):($fn);
-            if($p=strrpos($bind, ' ')) $bind = substr($bind, $p+1);
-            if(isset($cn::$schema['columns'][$bind])) $fd+=$cn::$schema['columns'][$bind];
-            $type = (isset($fd['type']) && isset($types[$fd['type']]))?($types[$fd['type']]):('string');
-            if(isset($fd['multiple']) && $fd['multiple']) $type = array($type, 'array');
-            $P[$fn]=array(
-                'type'=>$type,
-                'description'=>(isset($fd['description']))?($fd['description']):($fd['label']),
-            );
-            if(isset($fd['null']) && !$fd['null']) $R[] = $fn;
-        }
-
+        // move this to a Tecnodesign_Schema::dump($scope, $properties=array($id, title) ) method
+        // available scopes might form full definitions (?)
+        $cn = $this->getModel();
+        $so = $cn::schema($cn, array(), true)->toJsonSchema($scope);
         $S = array(
             '$schema'=>'http://json-schema.org/draft-07/schema#',
             '$id'=>tdz::buildUrl($this->link().$qs),
@@ -2087,16 +2069,15 @@ class Tecnodesign_Interface implements ArrayAccess
 
             $S['properties'][static::$envelopeProperty] = array(
                 'type'=>'array',
-                'items'=>array('type'=>'object','properties'=>$P, 'required'=>$R),
+                'items'=>$so,
             );
             $S['required'][] = static::$envelopeProperty;
 
         } else if(!$identified) {
             $S['type'] = 'array';
-            $S['items'] = array('type'=>'object','properties'=>$P, 'required'=>$R);
+            $S['items'] = $so;
         } else {
-            $S['properties']=$P;
-            $S['required']=$R;
+            $S += $so;
         }
         tdz::output($this->toJson($S), 'application/schema+json', false);
         Tecnodesign_App::end();
@@ -2666,7 +2647,6 @@ class Tecnodesign_Interface implements ArrayAccess
                 if($Q::TYPE!='sql') {
                     $sql = false;
                 }
-                unset($Q);
             }
             if($sql) {
                 $pk = $cn::pk();

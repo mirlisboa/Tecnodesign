@@ -574,7 +574,7 @@ class Tecnodesign_Query_Sql
                 }
                 */
                 return;
-            } else if (isset($sc['columns'][$fn]) || property_exists($cn, $fn)) {
+            } else if ((isset($sc['className']) && $sc['className']::$allowNewProperties) || isset($sc['columns'][$fn]) || property_exists($cn, $fn)) {
                 $found = true;
                 if(isset($sc['columns'][$fn]['alias']) && $sc['columns'][$fn]['alias']) {
                     $fn = $ta.'.'.$sc['columns'][$fn]['alias'].((!$noalias)?(' '.tdz::sql($fn)):(''));
@@ -959,7 +959,7 @@ class Tecnodesign_Query_Sql
                 throw new Tecnodesign_Exception(array(tdz::t('%s should not be null.', 'exception'), $M::fieldLabel($fn)));
             } else if(array_key_exists($fn, $odata)) {
                 $data[$fn] = self::sql($odata[$fn], $fv);
-            } else if($M->getOriginal($fn, false, true)!==false && is_null($M->$fn)) {
+            } else if($M->getOriginal($fn, false)!==false && is_null($M->$fn)) {
                 $data[$fn] = 'null';
             }
             unset($fs[$fn], $fn, $fv);
@@ -1006,7 +1006,7 @@ class Tecnodesign_Query_Sql
         if(!$fs) $fs = array_flip(array_keys($odata));
         $sql = '';
         foreach($fs as $fn=>$fv) {
-            $original=$M->getOriginal($fn, false, true);
+            $original=$M->getOriginal($fn, false);
             if(isset($fv['primary']) && $fv['primary']) {
                 $pks[$fn] = tdz::sql(($original)?($original):($odata[$fn]));
                 continue;

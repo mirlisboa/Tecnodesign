@@ -846,7 +846,7 @@ class tdz
         if(is_array($v)) {
             $r = '';
             foreach($v as $a) {
-                $r .= (($r)?($del):('')).\tdz::implode($a, $del);
+                $r .= (($r)?($del):('')).tdz::implode($a, $del);
                 unset($a);
             }
             return $r;
@@ -855,6 +855,24 @@ class tdz
         }
     }
 
+    public static function xmlImplode($v, $element='span', $printElement=true)
+    {
+        if(is_array($v)) {
+            $r = '';
+            foreach($v as $e=>$a) {
+                if(!is_numeric($e) && $printElement) {
+                    $r .= '<'.$element.'>'.tdz::xml($e).': ';
+                } else {
+                    $r .= '<'.$element.((!is_numeric($e))?(' data-element="'.tdz::xml($e).'"'):('')).'>';
+                }
+                $r .= tdz::xmlImplode($a, $element, $printElement).'</'.$element.'>';
+                unset($a, $e);
+            }
+            return $r;
+        } else {
+            return tdz::xml((string)$v);
+        }
+    }
     
     public static function requestUri($arg=array())
     {
@@ -1812,6 +1830,8 @@ class tdz
                 $logs['syslog'] = true;
             } else if($l=='error_log') {
                 $logs[0] = true;
+            } else if($l=='cli') {
+                if(TDZ_CLI) $logs[2] = true;
             } else {
                 if(!$l) {
                     if(tdz::$_app && tdz::$_env && ($app=tdz::getApp()) && isset($app->tecnodesign['log-dir'])) {
@@ -1853,6 +1873,9 @@ class tdz
                 if(isset($logs[0])) {
                     error_log($v, 0);
                 }
+                if(isset($logs[2])) {
+                    echo $v;
+                }
             } else {
                 try {
                     throw new Exception(tdz::toString($v));
@@ -1870,6 +1893,9 @@ class tdz
                     }
                     if(isset($logs[0])) {
                         error_log($v, 0);
+                    }
+                    if(isset($logs[2])) {
+                        echo $v;
                     }
                     unset($e);
                 }
